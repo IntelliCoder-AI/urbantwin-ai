@@ -190,8 +190,6 @@ export class Simulation {
         stopped: false,
       });
     }
-    const { q, oldest } = this.pressures();
-    this.signals = this.signals.map((s, i) => advanceSignal(s, this.strategy, q[i], oldest[i]));
     const remain: Vehicle[] = [];
     for (const v of this.pending) {
       if (!this.vehicles.some((a) => a.route === v.route && a.p < GAP)) {
@@ -214,7 +212,9 @@ export class Simulation {
           const stop = j.p - 10;
           if (
             v.p <= stop + 0.001 &&
-            (this.signals[j.i].phase !== 'green' || this.signals[j.i].axis !== axis)
+            (this.signals[j.i].phase !== 'green' ||
+              this.signals[j.i].axis !== axis ||
+              leader - GAP < j.p + 10)
           )
             target = Math.min(target, stop);
         }
@@ -243,6 +243,9 @@ export class Simulation {
     }
     this.vehicles = active;
     this.time = Math.min(this.config.duration, this.time + DT);
+    // Observe this completed step, then set the signal for the next interval.
+    const { q, oldest } = this.pressures();
+    this.signals = this.signals.map((s, i) => advanceSignal(s, this.strategy, q[i], oldest[i]));
     this.queueIntegral += this.vehicles.filter((v) => v.speed < 0.1).length * DT;
   }
   metrics(): Metrics {

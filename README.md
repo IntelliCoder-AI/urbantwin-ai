@@ -2,6 +2,8 @@
 
 **Simulate the City. Solve the Congestion.**
 
+[Open UrbanTwin AI](https://urbantwin-ai-omega.vercel.app) · [Source](https://github.com/IntelliCoder-AI/urbantwin-ai)
+
 An interactive, Bengaluru-inspired traffic digital twin built for Zeta Innovate 2026. Explore a 3D district, change synthetic traffic conditions, and compare fixed-time and adaptive signals with matched inputs.
 
 > All traffic is synthetic. This is a research demonstration, not a calibrated model of Bengaluru, a forecast of real-world improvements, or a controller for real roads.

@@ -181,6 +181,7 @@ function StaticCity({ junctions }: { junctions: 1 | 4 }) {
     parts.forEach((g) => g.dispose());
     return merged;
   }, [junctions]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <mesh geometry={geometry}>
       <meshStandardMaterial vertexColors roughness={0.72} />
@@ -252,7 +253,9 @@ function District({ frame, junctions, selected, onSelect, heat }: Props) {
                 <mesh position={[3, 0.75, 22]} rotation={[-Math.PI / 2, 0, 0]}>
                   <planeGeometry args={[4, 22]} />
                   <meshBasicMaterial
-                    color={(frame.queues[i]?.[d % 2] ?? 0) > 5 ? '#ff9260' : '#24daa7'}
+                    color={
+                      (frame.queues[i]?.[d % 2 === 0 ? 1 : 0] ?? 0) > 5 ? '#ff9260' : '#24daa7'
+                    }
                     transparent
                     opacity={0.25}
                   />

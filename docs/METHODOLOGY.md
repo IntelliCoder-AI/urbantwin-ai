@@ -12,11 +12,11 @@ Four junctions at (±45, ±45) meters with eight external approaches ending at �
 
 Per-entry arrival rates:
 
-| Scenario | East/west | North/south | Incident |
-|---|---:|---:|---|
-| Normal | 0.075 veh/s | 0.075 veh/s | None |
-| Rush | 0.22 veh/s | 0.055 veh/s | None |
-| Incident | 0.22 veh/s | 0.055 veh/s | First west entry, 90–180 s |
+| Scenario |   East/west | North/south | Incident                   |
+| -------- | ----------: | ----------: | -------------------------- |
+| Normal   | 0.075 veh/s | 0.075 veh/s | None                       |
+| Rush     |  0.22 veh/s | 0.055 veh/s | None                       |
+| Incident |  0.22 veh/s | 0.055 veh/s | First west entry, 90–180 s |
 
 Each 0.5 s step independently generates an arrival with probability rate × step. This is a Bernoulli approximation, not calibrated demand. Arrivals stop at 300 s, followed by a 300 s clearance period. Trips still pending at the 600 s horizon remain in the reported cohort.
 
@@ -31,7 +31,9 @@ Each junction independently alternates east/west and north/south greens. There a
 - **Fixed:** 30 s green per axis, then 3 s amber and 3 s all-red.
 - **Adaptive:** 10 s minimum green; 42 s maximum green. Between those limits, switch when the other axis's pressure exceeds the current axis by more than 1, or its oldest approaching vehicle has accumulated at least 55 s waiting.
 - **Pressure:** number of approaching vehicles within 65 m + greatest accumulated wait among those vehicles / 12.
-- Switching always passes through amber and all-red before the conflicting axis turns green. Green caps force phase alternation even when the dominant stream remains busy.
+- The browser engine also prevents entry when the same-lane downstream leader leaves insufficient space to clear the junction. This avoids blocking the crossing when downstream queues spill back.
+
+Switching always passes through amber and all-red before the conflicting axis turns green. Green caps force phase alternation even when the dominant stream remains busy.
 
 The 55 s age condition refers to **accumulated vehicle waiting**, possibly including an upstream junction, not strictly red time at the current light. These safeguards prevent phase monopolization; they cannot guarantee bounded individual waits with excessive arrival demand or blocked downstream roads. No claim of formal road-safety certification is made.
 
@@ -39,17 +41,17 @@ The 55 s age condition refers to **accumulated vehicle waiting**, possibly inclu
 
 At time t, the denominator is all vehicles whose scheduled departures have been released, including completed, active and not-yet-inserted vehicles. Vehicles scheduled in the future are excluded.
 
-| Metric | Definition |
-|---|---|
-| Mean waiting | Total accumulated standstill time (speed < 0.1 m/s) plus departure/insertion delay, divided by released vehicles |
-| Average delay | Browser: integral of 1 − speed/10 over each step, including pending time. SUMO: TraCI `getTimeLoss()` plus departure delay, accumulated for each released vehicle |
-| Queue | Current number of stopped, inserted vehicles; pending insertion is exported separately |
-| Mean queue | Time integral of the current network queue divided by the 600 s horizon |
-| Throughput | Completed trips during the observation window, not an extrapolated hourly rate |
-| Stops | Moving-to-stopped transitions after insertion; pending insertion alone does not count as a stop |
-| Worst wait | Largest accumulated waiting time among all released vehicles |
-| Approach wait equality | Jain's index `(sum means)^2 / (n * sum squared means)` over mean waits for populated directional approach groups (E/W/S/N) |
-| Percentage reduction | `100 * (fixed − adaptive) / fixed`; undefined when fixed is zero |
+| Metric                 | Definition                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mean waiting           | Total accumulated standstill time (speed < 0.1 m/s) plus departure/insertion delay, divided by released vehicles                                                  |
+| Average delay          | Browser: integral of 1 − speed/10 over each step, including pending time. SUMO: TraCI `getTimeLoss()` plus departure delay, accumulated for each released vehicle |
+| Queue                  | Current number of stopped, inserted vehicles; pending insertion is exported separately                                                                            |
+| Mean queue             | Time integral of the current network queue divided by the 600 s horizon                                                                                           |
+| Throughput             | Completed trips during the observation window, not an extrapolated hourly rate                                                                                    |
+| Stops                  | Moving-to-stopped transitions after insertion; pending insertion alone does not count as a stop                                                                   |
+| Worst wait             | Largest accumulated waiting time among all released vehicles                                                                                                      |
+| Approach wait equality | Jain's index `(sum means)^2 / (n * sum squared means)` over mean waits for populated directional approach groups (E/W/S/N)                                        |
+| Percentage reduction   | `100 * (fixed − adaptive) / fixed`; undefined when fixed is zero                                                                                                  |
 
 Jain's index is 1 for equal group waits (and by convention for all zero); equal suffering is not good service. Always inspect mean and worst waiting alongside it. Grouping by direction across the network can hide differences between specific junctions. An arriving SUMO vehicle's final delay uses its last available TraCI sample; at 0.5 s resolution this can omit at most the final sampled segment's time loss. Waiting and stops are sampled at the same resolution. SUMO tripinfo XML is retained in generated local files for further analysis.
 
@@ -61,14 +63,14 @@ The JSON evidence contains individual runs, cohort counts, all headline metrics,
 
 ## Verified results
 
-| Engine | Scenario | Mean waiting reduction | 95% t interval |
-|---|---|---:|---:|
-| Browser v1 | Normal | 21.22% | 15.63–26.80% |
-| Browser v1 | Rush | 25.60% | 20.89–30.32% |
-| Browser v1 | Incident | 32.56% | 25.68–39.45% |
-| SUMO 1.28.0 | Normal | 35.06% | 21.87–48.25% |
-| SUMO 1.28.0 | Rush | 50.00% | 45.75–54.25% |
-| SUMO 1.28.0 | Incident | 48.59% | 42.38–54.81% |
+| Engine      | Scenario | Mean waiting reduction | 95% t interval |
+| ----------- | -------- | ---------------------: | -------------: |
+| Browser v1  | Normal   |                 12.44% |    2.87–22.01% |
+| Browser v1  | Rush     |                 45.07% |   31.11–59.03% |
+| Browser v1  | Incident |                 42.52% |   33.86–51.18% |
+| SUMO 1.28.0 | Normal   |                 34.60% |   21.02–48.19% |
+| SUMO 1.28.0 | Rush     |                 50.15% |   46.42–53.87% |
+| SUMO 1.28.0 | Incident |                 48.09% |   42.11–54.06% |
 
 These are means of paired percentage reductions, not percentages derived from pooled vehicle data. SUMO's 30 evaluation runs (15 matched pairs) finished all released trips by 600 s. All 36 runs including replay generation had zero reported colliding vehicles and zero teleports. Negative results are preserved if future configurations produce regressions.
 

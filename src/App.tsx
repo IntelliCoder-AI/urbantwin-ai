@@ -1,13 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   Box,
-  ChartNoAxesCombined,
   Check,
-  ChevronDown,
   Clock3,
   Download,
   FlaskConical,
@@ -25,7 +22,6 @@ import {
   ShieldCheck,
   Sparkles,
   TrafficCone,
-  Volume2,
   X,
   Zap,
 } from 'lucide-react';
@@ -37,9 +33,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  LineChart,
-  Line,
-  Legend,
 } from 'recharts';
 import {
   Simulation,
@@ -53,6 +46,7 @@ import {
   type Scenario,
   type Strategy,
 } from './sim/engine';
+import type { SumoTrace, SumoEvaluation } from './sim/evidence';
 const City = lazy(() => import('./components/City'));
 const tabs = [
   { name: 'City overview', icon: Globe2 },
@@ -104,32 +98,30 @@ function useTwin(config: Config, playing: boolean, speed: number) {
     if (!playing) return;
     let accumulator = 0;
     const timer = setInterval(() => {
+      if (sims.current.fixed.time >= config.duration) {
+        clearInterval(timer);
+        return;
+      }
       accumulator += speed * 0.1;
       let moved = false;
+      const samples: { time: number; fixed: number; adaptive: number; queue: number }[] = [];
       while (accumulator >= 0.5) {
         sims.current.fixed.step();
         sims.current.adaptive.step();
         accumulator -= 0.5;
         moved = true;
+        if (sims.current.fixed.time % 5 === 0) {
+          const f = sims.current.fixed.metrics(),
+            a = sims.current.adaptive.metrics();
+          samples.push({ time: f.time, fixed: f.waiting, adaptive: a.waiting, queue: a.queue });
+        }
+        if (sims.current.fixed.time >= config.duration) break;
       }
       if (moved) {
         const f = sims.current.fixed.frame(),
           a = sims.current.adaptive.frame();
         setFrames({ fixed: f, adaptive: a });
-        if (f.time % 5 === 0)
-          setHistory((h) =>
-            h.at(-1)?.time === f.time
-              ? h
-              : [
-                  ...h,
-                  {
-                    time: f.time,
-                    fixed: f.metrics.waiting,
-                    adaptive: a.metrics.waiting,
-                    queue: a.metrics.queue,
-                  },
-                ].slice(-121),
-          );
+        if (samples.length) setHistory((h) => [...h, ...samples].slice(-121));
       }
     }, 100);
     return () => clearInterval(timer);
@@ -242,8 +234,8 @@ export default function App() {
     [answer, setAnswer] = useState(''),
     [batch, setBatch] = useState<ReturnType<typeof repeat> | null>(null),
     [busy, setBusy] = useState(false),
-    [sumo, setSumo] = useState<any>(null),
-    [replay, setReplay] = useState<any>(null),
+    [sumo, setSumo] = useState<SumoEvaluation | null>(null),
+    [replay, setReplay] = useState<SumoTrace | null>(null),
     [source, setSource] = useState<'browser' | 'sumo'>('browser'),
     [replayTime, setReplayTime] = useState(0);
   const { frames, history, reset } = useTwin(config, playing && source === 'browser', speed);
@@ -618,7 +610,7 @@ export default function App() {
                   <div className="map-caption">
                     <span>
                       <i className="dot" />{' '}
-                      {playing && frame.time < 600 ? 'RUNNING' : 'PAUSED / COMPLETE'}
+                      {frame.time >= 600 ? 'COMPLETE' : playing ? 'RUNNING' : 'PAUSED'}
                     </span>
                     <strong>
                       {source === 'sumo' ? 'SUMO trace replay' : 'Newly calculated simulation'}
@@ -1219,7 +1211,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {sumo.results.map((r: any) => (
+                          {sumo.results.map((r) => (
                             <tr key={r.scenario}>
                               <td>{labels[r.scenario as Scenario]}</td>
                               <td>{format(r.waitImprovementMean)}%</td>

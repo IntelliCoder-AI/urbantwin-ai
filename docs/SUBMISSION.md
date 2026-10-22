@@ -4,7 +4,7 @@
 
 **Repository:** https://github.com/IntelliCoder-AI/urbantwin-ai
 
-**Public application:** Deployment verification pending; the verified URL will be added after publication.
+**Public application:** https://urbantwin-ai-omega.vercel.app (Vercel production deployment reports READY).
 
 **Target:** November 1, 2026 (provided by the project owner; not independently verified as the official deadline).
 
@@ -28,12 +28,14 @@ Traffic-signal proposals are difficult for non-specialists to assess. A visually
 
 React + TypeScript + Vite; Three.js, React Three Fiber and Drei for 3D; Recharts for metrics; a Web Worker for repeated browser experiments; Python, SUMO 1.28.0 and TraCI for offline evaluation. Static deployment on Vercel. No database, external AI API or persistent backend is required.
 
-See [methodology](METHODOLOGY.md) for network definitions, controller timing, metric denominators and evaluation results. The observed five-seed SUMO mean waiting reductions were 35.06%, 50.00% and 48.59% for normal, rush and incident demand, respectively, against the simple equal-split fixed baseline. These are synthetic-model results, not expected improvements on actual Bengaluru roads.
+See [methodology](METHODOLOGY.md) for network definitions, controller timing, metric denominators and evaluation results. The observed five-seed SUMO mean waiting reductions were 34.60%, 50.15% and 48.09% for normal, rush and incident demand, respectively, against the simple equal-split fixed baseline. These are synthetic-model results, not expected improvements on actual Bengaluru roads.
 
 ## Screenshots
 
 - [Desktop city overview](screenshots/overview-desktop.png)
 - [Mobile city overview](screenshots/overview-mobile.png)
+- [Counterfactual lab and five-seed results](screenshots/counterfactual-lab.png)
+- [Methodology and SUMO evidence](screenshots/methodology.png)
 
 The screenshots are captures of the working application, not concept renders. Additional counterfactual and methodology captures can be included with the final competition materials.
 
