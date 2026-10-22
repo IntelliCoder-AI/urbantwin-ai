@@ -85,6 +85,7 @@ function useTwin(config: Config, playing: boolean, speed: number) {
   const [history, setHistory] = useState<
     { time: number; fixed: number; adaptive: number; queue: number }[]
   >([]);
+  const [resetVersion, setResetVersion] = useState(0);
   const reset = () => {
     sims.current = {
       fixed: new Simulation(config, 'fixed'),
@@ -92,6 +93,7 @@ function useTwin(config: Config, playing: boolean, speed: number) {
     };
     setFrames({ fixed: sims.current.fixed.frame(), adaptive: sims.current.adaptive.frame() });
     setHistory([]);
+    setResetVersion((v) => v + 1);
   };
   useEffect(reset, [config]);
   useEffect(() => {
@@ -125,7 +127,7 @@ function useTwin(config: Config, playing: boolean, speed: number) {
       }
     }, 100);
     return () => clearInterval(timer);
-  }, [config, playing, speed]);
+  }, [config, playing, speed, resetVersion]);
   return { frames, history, reset };
 }
 function Delta({ value }: { value: number | null }) {
@@ -200,7 +202,7 @@ function insights(f: Metrics, a: Metrics, scenario: Scenario) {
   return [
     {
       title: 'What the comparison tells us',
-      body: `At ${clock(a.time)}, adaptive control records ${format(a.waiting)} s mean waiting versus ${format(f.waiting)} s with fixed timing.${pct === null ? ' More traffic is needed for a percentage comparison.' : ` This is ${Math.abs(pct).toFixed(1)}% ${pct >= 0 ? 'lower' : 'higher'} waiting for the same seed and arrivals.`} These are partial-run results; rerun multiple seeds before drawing a conclusion.`,
+      body: `At ${clock(a.time)}, adaptive control records ${format(a.waiting)} s mean waiting versus ${format(f.waiting)} s with fixed timing.${pct === null ? ' More traffic is needed for a percentage comparison.' : ` This is ${Math.abs(pct).toFixed(1)}% ${pct >= 0 ? 'lower' : 'higher'} waiting for the same seed and arrivals.`} ${a.time >= 600 ? 'This run is complete' : 'These are partial-run results'}; rerun multiple seeds before drawing a conclusion.`,
     },
     {
       title: 'Watch the least-served approach',
@@ -238,6 +240,7 @@ export default function App() {
     [replay, setReplay] = useState<SumoTrace | null>(null),
     [source, setSource] = useState<'browser' | 'sumo'>('browser'),
     [replayTime, setReplayTime] = useState(0);
+  useEffect(() => setAnswer(''), [config, source]);
   const { frames, history, reset } = useTwin(config, playing && source === 'browser', speed);
   useEffect(() => {
     fetch('/data/sumo-evaluation.json')
@@ -599,6 +602,8 @@ export default function App() {
                     fallback={<div className="canvas-fallback">Assembling your district…</div>}
                   >
                     <City
+                      playing={playing}
+                      speed={speed}
                       frame={frame}
                       junctions={source === 'sumo' ? 4 : config.junctions}
                       selected={selected}
@@ -642,11 +647,11 @@ export default function App() {
                   <div className="map-legend">
                     <span>
                       <i style={{ background: '#49d7ae' }} />
-                      Moving
+                      Low queue
                     </span>
                     <span>
                       <i style={{ background: '#ffb56b' }} />
-                      Queued
+                      High queue
                     </span>
                     <span className="orbit-hint">Drag to orbit · scroll to zoom</span>
                   </div>
@@ -904,6 +909,8 @@ export default function App() {
                     <div className="mini-city">
                       <Suspense fallback={<div>Loading 3D…</div>}>
                         <City
+                          playing={playing}
+                          speed={speed}
                           frame={activeFrames[s]}
                           junctions={source === 'sumo' ? 4 : config.junctions}
                           selected={selected}

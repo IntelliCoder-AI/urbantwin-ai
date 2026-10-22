@@ -12,6 +12,8 @@ type Props = {
   heat: boolean;
   camera: number;
   compact?: boolean;
+  playing: boolean;
+  speed: number;
 };
 function Box({
   position,
@@ -31,45 +33,124 @@ function Box({
     </mesh>
   );
 }
-function Vehicles({ frame }: { frame: Frame }) {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  const roof = useRef<THREE.InstancedMesh>(null);
+// Geometry is shared by every vehicle; only transforms and paint vary per instance.
+function Vehicles({ frame, playing, speed }: Pick<Props, 'frame' | 'playing' | 'speed'>) {
+  const body = useRef<THREE.InstancedMesh>(null);
+  const detail = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const color = useMemo(() => new THREE.Color(), []);
-  useFrame(() => {
-    if (!mesh.current || !roof.current) return;
+  const motion = useRef(new Map<number, { x: number; z: number; fromX: number; fromZ: number }>());
+  const timing = useRef({ frame, start: 0, duration: 0 });
+  const geometries = useMemo(() => {
+    const shell = new THREE.BoxGeometry(1.85, 0.65, 4.2);
+    shell.translate(0, 0.85, 0);
+    const cabin = new THREE.BoxGeometry(1.65, 0.65, 2.15);
+    const pos = cabin.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) > 0) {
+        pos.setX(i, pos.getX(i) * 0.8);
+        pos.setZ(i, pos.getZ(i) * 0.72);
+      }
+    }
+    cabin.computeVertexNormals();
+    cabin.translate(0, 1.47, -0.15);
+    const parts: THREE.BufferGeometry[] = [];
+    const add = (g: THREE.BufferGeometry, c: string) => {
+      const colors = new Float32Array(g.attributes.position.count * 3);
+      const tint = new THREE.Color(c);
+      for (let i = 0; i < g.attributes.position.count; i++) tint.toArray(colors, i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      parts.push(g);
+    };
+    add(cabin, '#293d49');
+    for (const x of [-0.92, 0.92])
+      for (const z of [-1.35, 1.35]) {
+        const wheel = new THREE.CylinderGeometry(0.36, 0.36, 0.22, 10);
+        wheel.rotateZ(Math.PI / 2);
+        wheel.translate(x, 0.47, z);
+        add(wheel, '#1b2023');
+      }
+    for (const x of [-0.62, 0.62])
+      for (const z of [-2.11, 2.11]) {
+        const lamp = new THREE.BoxGeometry(0.4, 0.2, 0.04);
+        lamp.translate(x, 0.88, z);
+        add(lamp, z > 0 ? '#fff1c8' : '#a42622');
+      }
+    const top = new THREE.BoxGeometry(1.34, 0.08, 1.53);
+    top.translate(0, 1.81, -0.15);
+    const paint = mergeGeometries([shell, top]);
+    const details = mergeGeometries(parts);
+    shell.dispose();
+    top.dispose();
+    parts.forEach((g) => g.dispose());
+    return { paint, details };
+  }, []);
+  useEffect(
+    () => () => {
+      geometries.paint.dispose();
+      geometries.details.dispose();
+    },
+    [geometries],
+  );
+  useFrame(({ clock }) => {
+    if (!body.current || !detail.current) return;
+    const now = clock.elapsedTime;
+    if (timing.current.frame !== frame) {
+      const elapsed = frame.time - timing.current.frame.time;
+      if (elapsed <= 0) motion.current.clear();
+      motion.current.forEach((v) => {
+        v.fromX = v.x;
+        v.fromZ = v.z;
+      });
+      timing.current = {
+        frame,
+        start: now,
+        duration: elapsed > 0 ? Math.min(elapsed / speed, 1) : 0,
+      };
+    }
+    // Interpolate only between observed positions, never predict through a red signal.
+    // Pause and resets show the exact recorded state immediately.
+    const alpha =
+      !playing || !timing.current.duration
+        ? 1
+        : Math.min(1, (now - timing.current.start) / timing.current.duration);
     const vehicles = frame.vehicles.slice(0, 1400);
-    mesh.current.count = vehicles.length;
-    roof.current.count = vehicles.length;
+    body.current.count = detail.current.count = vehicles.length;
+    const present = new Set<number>();
     vehicles.forEach((v, i) => {
-      dummy.position.set(v.x, 1.05, v.z);
+      present.add(v.id);
+      const m = motion.current.get(v.id) ?? { x: v.x, z: v.z, fromX: v.x, fromZ: v.z };
+      m.x = THREE.MathUtils.lerp(m.fromX, v.x, alpha);
+      m.z = THREE.MathUtils.lerp(m.fromZ, v.z, alpha);
+      motion.current.set(v.id, m);
+      dummy.position.set(m.x, 0.68, m.z);
       dummy.rotation.set(0, v.angle, 0);
-      dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      mesh.current!.setMatrixAt(i, dummy.matrix);
-      color.set(
-        v.speed < 0.1
-          ? '#ffb56b'
-          : ['#b7ddd9', '#34d3ae', '#8db2d4', '#d8d2b2', '#b5a1c9'][v.id % 5],
-      );
-      mesh.current!.setColorAt(i, color);
-      dummy.position.y = 1.9;
-      dummy.updateMatrix();
-      roof.current!.setMatrixAt(i, dummy.matrix);
+      body.current!.setMatrixAt(i, dummy.matrix);
+      detail.current!.setMatrixAt(i, dummy.matrix);
+      color.set(['#e8e7e0', '#b8bcc0', '#415c71', '#b34b3b', '#d1c2a2', '#353b42'][v.id % 6]);
+      body.current!.setColorAt(i, color);
     });
-    mesh.current.instanceMatrix.needsUpdate = true;
-    roof.current.instanceMatrix.needsUpdate = true;
-    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true;
+    for (const id of motion.current.keys()) if (!present.has(id)) motion.current.delete(id);
+    body.current.instanceMatrix.needsUpdate = detail.current.instanceMatrix.needsUpdate = true;
+    if (body.current.instanceColor) body.current.instanceColor.needsUpdate = true;
   });
   return (
     <>
-      <instancedMesh ref={mesh} args={[undefined, undefined, 1400]} frustumCulled={false}>
-        <boxGeometry args={[2.1, 1.3, 4.2]} />
-        <meshStandardMaterial roughness={0.4} />
+      <instancedMesh
+        ref={body}
+        args={[geometries.paint, undefined, 1400]}
+        frustumCulled={false}
+        castShadow
+      >
+        <meshStandardMaterial roughness={0.3} metalness={0.25} />
       </instancedMesh>
-      <instancedMesh ref={roof} args={[undefined, undefined, 1400]} frustumCulled={false}>
-        <boxGeometry args={[1.7, 0.65, 2.2]} />
-        <meshStandardMaterial color="#293e4b" metalness={0.4} roughness={0.3} />
+      <instancedMesh
+        ref={detail}
+        args={[geometries.details, undefined, 1400]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial vertexColors roughness={0.45} metalness={0.15} />
       </instancedMesh>
     </>
   );
@@ -133,12 +214,12 @@ function StaticCity({ junctions }: { junctions: 1 | 4 }) {
     const box = (x: number, y: number, z: number, w: number, h: number, d: number, c: string) =>
       add(new THREE.BoxGeometry(w, h, d), x, y, z, c);
     box(0, -2.6, 0, 240, 5, 240, '#15252c');
-    box(0, 0.02, 0, 228, 0.4, 228, '#334541');
+    box(0, 0.02, 0, 228, 0.4, 228, '#73806b');
     for (const r of roads) {
-      box(0, 0.25, r, 226, 0.5, 18, '#64716d');
-      box(0, 0.56, r, 226, 0.18, 13, '#202d36');
-      box(r, 0.25, 0, 18, 0.5, 226, '#64716d');
-      box(r, 0.57, 0, 13, 0.18, 226, '#202d36');
+      box(0, 0.25, r, 226, 0.5, 18, '#b2aea1');
+      box(0, 0.56, r, 226, 0.18, 13, '#383e40');
+      box(r, 0.25, 0, 18, 0.5, 226, '#b2aea1');
+      box(r, 0.57, 0, 13, 0.18, 226, '#383e40');
       for (let x = -108; x <= 108; x += 6) {
         if (roads.some((v) => Math.abs(x - v) < 9)) continue;
         box(x, 0.68, r, 3, 0.05, 0.18, '#a2a67d');
@@ -153,29 +234,78 @@ function StaticCity({ junctions }: { junctions: 1 | 4 }) {
           (x > 5 && x < 35 && z > 5 && z < 35)
         )
           continue;
-        const h = 7 + rng() * 24,
-          w = 9 + rng() * 5,
-          c = ['#314852', '#3b505a', '#405b61', '#2a404b', '#4e6266'][Math.floor(rng() * 5)];
+        const type = Math.floor(rng() * 3);
+        const h = type === 0 ? 5 + rng() * 5 : type === 1 ? 12 + rng() * 6 : 21 + rng() * 9;
+        const w = 10 + rng() * 3;
+        const c = ['#d1c6ae', '#acb3ad', '#b5997c', '#9bacae', '#c5c0b4'][Math.floor(rng() * 5)];
         buildings.push({ x, z, w });
-        box(x, h / 2 + 0.5, z, w, h, w, c);
-        box(x, h + 0.8, z, w + 1, 0.65, w + 1, '#647d7d');
-        box(x + 1, h + 1.8, z, w * 0.45, 2, w * 0.5, '#344851');
-        for (let k = 0; k < Math.floor(h / 4); k++) {
-          box(x, k * 4 + 3, z + w / 2 + 0.04, w * 0.76, 0.85, 0.06, '#709499');
-          box(x + w / 2 + 0.04, k * 4 + 3, z, 0.06, 0.85, w * 0.76, '#668b8d');
+        box(x, 0.6, z, w + 2.5, 0.6, w + 2.5, '#bcb6a5');
+        box(x, h / 2 + 0.7, z, w, h, w, c);
+        box(x, h + 0.8, z, w + 0.5, 0.4, w + 0.5, '#d4d0bf');
+        // Flat roofs, parapets, utility tanks and stairwell enclosures.
+        for (const sign of [-1, 1]) {
+          box(x + (sign * w) / 2, h + 1.3, z, 0.25, 0.8, w, c);
+          box(x, h + 1.3, z + (sign * w) / 2, w, 0.8, 0.25, c);
+        }
+        box(x + 2, h + 1.6, z - 2, 3, 1.6, 3, '#92958b');
+        add(new THREE.CylinderGeometry(0.9, 0.9, 1.7, 10), x - 2, h + 1.8, z - 2, '#37434a');
+        for (let floor = 0; floor < Math.floor(h / 3.2); floor++) {
+          for (const offset of [-0.3, 0, 0.3])
+            for (const sign of [-1, 1]) {
+              const y = floor * 3.2 + 2.4;
+              const glass = (floor + Math.round(x + z)) % 4 === 0 ? '#879695' : '#405660';
+              box(x + offset * w, y, z + sign * (w / 2 + 0.02), 1.65, 1.5, 0.08, glass);
+              box(x + sign * (w / 2 + 0.02), y, z + offset * w, 0.08, 1.5, 1.65, glass);
+              if (type === 1) {
+                box(x + offset * w, y - 0.8, z + sign * (w / 2 + 0.4), 2.1, 0.17, 0.9, '#d8d2be');
+              }
+            }
+        }
+        if (type === 0) {
+          box(x, 2, z + w / 2 + 0.1, w * 0.7, 2.4, 0.15, '#344d52');
+          box(x, 3.4, z + w / 2 + 0.8, w * 0.9, 0.25, 1.6, '#577b65');
         }
       }
-    for (let i = 0; i < 160; i++) {
+    const tree = (x: number, z: number, n: number) => {
+      add(new THREE.CylinderGeometry(0.17, 0.27, 3.6, 6), x, 2.3, z, '#76634c');
+      for (let j = 0; j < 3; j++) {
+        const crown = new THREE.IcosahedronGeometry(1.6 + j * 0.22, 1);
+        crown.scale(1, 1.15, 1);
+        add(
+          crown,
+          x + Math.sin(j * 2.1) * 0.9,
+          4.2 + j * 0.5,
+          z + Math.cos(j * 2.1) * 0.9,
+          ['#526e3f', '#617f48', '#738951'][(n + j) % 3],
+        );
+      }
+    };
+    // Regular sidewalk planting and street furniture follow the actual road network.
+    for (const r of roads)
+      for (let p = -102; p <= 102; p += 17) {
+        if (roads.some((v) => Math.abs(p - v) < 14)) continue;
+        for (const side of [-1, 1]) {
+          tree(p, r + side * 10.8, Math.abs(p));
+          tree(r + side * 10.8, p, Math.abs(p));
+          box(p + 4, 3.7, r + side * 8, 0.14, 6, 0.14, '#5a6060');
+          box(p + 4, 6.7, r + side * 7.2, 0.24, 0.2, 1.8, '#b4b6aa');
+          box(r + side * 8, 3.7, p + 4, 0.14, 6, 0.14, '#5a6060');
+          box(r + side * 7.2, 6.7, p + 4, 1.8, 0.2, 0.24, '#b4b6aa');
+          // Segmented curbs leave intersection crossings unobstructed.
+          box(p, 0.75, r + side * 6.7, 12, 0.22, 0.3, '#c8c5b7');
+          box(r + side * 6.7, 0.75, p, 0.3, 0.22, 12, '#c8c5b7');
+        }
+      }
+    for (let i = 0; i < 100; i++) {
       const r = random(i * 185 + 4);
       const x = (r() - 0.5) * 213,
         z = (r() - 0.5) * 213;
       if (
-        roads.some((v) => Math.abs(x - v) < 12 || Math.abs(z - v) < 12) ||
+        roads.some((v) => Math.abs(x - v) < 13 || Math.abs(z - v) < 13) ||
         buildings.some((b) => Math.abs(x - b.x) < 9 && Math.abs(z - b.z) < 9)
       )
         continue;
-      box(x, 2, z, 0.7, 4, 0.7, '#696249');
-      add(new THREE.IcosahedronGeometry(2.7, 1), x, 4.5, z, i % 2 ? '#367d67' : '#4c9272');
+      tree(x, z, i);
     }
     const merged = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
     parts.forEach((g) => g.dispose());
@@ -183,12 +313,12 @@ function StaticCity({ junctions }: { junctions: 1 | 4 }) {
   }, [junctions]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} castShadow receiveShadow>
       <meshStandardMaterial vertexColors roughness={0.72} />
     </mesh>
   );
 }
-function District({ frame, junctions, selected, onSelect, heat }: Props) {
+function District({ frame, junctions, selected, onSelect, heat, playing, speed }: Props) {
   return (
     <group>
       <StaticCity junctions={junctions} />
@@ -266,7 +396,7 @@ function District({ frame, junctions, selected, onSelect, heat }: Props) {
           <JunctionMarker index={i} selected={selected === i} onSelect={() => onSelect(i)} />
         </group>
       ))}
-      <Vehicles frame={frame} />
+      <Vehicles frame={frame} playing={playing} speed={speed} />
     </group>
   );
 }
@@ -292,14 +422,29 @@ export default function City(props: Props) {
       <Canvas
         key={props.camera}
         dpr={[1, 1.5]}
+        shadows="soft"
         camera={{ position: [210, 195, 230], fov: 40, near: 1, far: 1200 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
       >
         <color attach="background" args={['#101c26']} />
         <fog attach="fog" args={['#101c26', 320, 670]} />
-        <ambientLight intensity={1.15} />
-        <hemisphereLight args={['#a4dce4', '#29483c', 1.8]} />
-        <directionalLight position={[60, 130, -80]} intensity={3} color="#c6eee4" />
+        <ambientLight intensity={0.7} />
+        <hemisphereLight args={['#d9e7f1', '#8a826a', 1.4]} />
+        <directionalLight
+          position={[-70, 140, 60]}
+          intensity={2.4}
+          color="#fff1d6"
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+          shadow-camera-left={-160}
+          shadow-camera-right={160}
+          shadow-camera-top={160}
+          shadow-camera-bottom={-160}
+          shadow-camera-near={1}
+          shadow-camera-far={350}
+          shadow-normalBias={0.3}
+          shadow-bias={-0.0001}
+        />
         <District {...props} />
         <ContactShadows
           position={[0, -5.2, 0]}
