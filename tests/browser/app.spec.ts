@@ -9,6 +9,7 @@ test('complete traffic lab journey', async ({ page }, testInfo) => {
   await expect(page.locator('canvas')).toBeVisible();
   await page.getByLabel('Playback speed', { exact: true }).selectOption('16');
   await expect(page.locator('.time-code')).not.toContainText('00:00');
+  await expect(page.locator('.trend-chart .recharts-area-curve')).toHaveCount(2);
   await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   const time = await page.locator('.time-code').textContent();
   await page.waitForTimeout(700);

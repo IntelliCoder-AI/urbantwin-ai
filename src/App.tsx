@@ -175,6 +175,7 @@ function Chart({ data, compare = false }: { data: unknown[]; compare?: boolean }
         />
         {compare && (
           <Area
+            isAnimationActive={false}
             type="monotone"
             dataKey="fixed"
             name="Fixed wait (s)"
@@ -184,6 +185,7 @@ function Chart({ data, compare = false }: { data: unknown[]; compare?: boolean }
           />
         )}
         <Area
+          isAnimationActive={false}
           type="monotone"
           dataKey="adaptive"
           name="Adaptive wait (s)"
