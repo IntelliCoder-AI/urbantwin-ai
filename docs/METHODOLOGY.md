@@ -102,3 +102,11 @@ The application runs entirely on static hosting. No server accepts credentials o
 ## Next validation steps
 
 Add turning conflicts and pedestrians before proposing more realistic junction logic; calibrate a licensed GIS network and independently collected traffic counts; add vehicle classes; benchmark against optimized fixed-time and coordinated controllers; use more seeds and demand patterns; validate on physical low-end phones and multiple browser engines. None of these are implied by the present results.
+
+## Junction waiting over the run
+
+The assistant distinguishes current approaching-demand snapshots from cumulative junction waiting. Each engine adds 0.5 vehicle-seconds for each vehicle below 0.1 m/s within the 65 m incoming stop-line detection zone on each 0.5 s simulation step. Counts are attributed to the upcoming junction, never simultaneously to multiple intersections. SUMO counters are sampled at every step and stored with its 1 s replay frames; they are not inferred by interpolating replay positions.
+
+The `junctionWaiting` frame array preserves totals after traffic clears. Experiment exports include totals for both strategies, units, the detection window, speed threshold and step size. This is aggregate detected stopped time, not mean waiting per vehicle: higher demand can contribute to a higher total. It excludes waiting to enter the network, waiting beyond the detector, and stopped vehicles inside the junction. It cannot replace the network waiting metric or establish a causal explanation for congestion. Rankings use only evidence up to the displayed simulation time. Older traces without this field receive an explicit unavailable response.
+
+Ask “Which intersection is most congested right now?” for a snapshot or “Which intersection had the most waiting over the run?” for cumulative evidence. A scenario-scoped question such as “most congested in rush hour” defaults to cumulative evidence; “right now” takes precedence if both appear. The parser uses supported intents and an explicit vocabulary. Mixed unsupported requests are rejected, including a traffic question combined with a recipe or investment request. Some legitimate paraphrases are deliberately unsupported; this is not general-purpose language understanding.

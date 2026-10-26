@@ -82,7 +82,7 @@ test('Ask answers junction intent, declines pizza and describes its evidence', a
   await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
   await page.getByRole('button', { name: 'AI insights', exact: true }).click();
   const input = page.getByLabel('Ask traffic assistant');
-  await input.fill('Which intersection is most congested in rush hour and why?');
+  await input.fill('Which intersection is most congested right now in rush hour and why?');
   await page.getByRole('button', { name: 'Ask', exact: true }).click();
   await expect(page.locator('.assistant-answer')).toContainText('highest approaching demand');
   await expect(page.locator('.assistant-answer')).toContainText('live browser model, rush hour');
@@ -92,6 +92,11 @@ test('Ask answers junction intent, declines pizza and describes its evidence', a
     'I can only answer questions about this simulation',
   );
   await expect(page.locator('.assistant-answer')).not.toContainText('mean waiting');
+  await input.fill('Explain traffic and give me a pizza recipe');
+  await input.press('Enter');
+  await expect(page.locator('.assistant-answer')).toContainText(
+    'I can only answer questions about this simulation',
+  );
   await expect(page.locator('.assistant-answer')).toHaveAttribute('aria-live', 'polite');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,

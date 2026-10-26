@@ -341,6 +341,15 @@ export default function App() {
         time: frame.time,
         fixed: f,
         adaptive: a,
+        junctionWaiting: {
+          unit: 'vehicle-seconds',
+          detectionDistanceMeters: 65,
+          stoppedBelowMetersPerSecond: 0.1,
+          stepSeconds: 0.5,
+          excludes: 'outside detector zones and vehicles waiting to enter',
+          fixed: activeFrames.fixed.junctionWaiting ?? null,
+          adaptive: activeFrames.adaptive.junctionWaiting ?? null,
+        },
         batch: batch ? { engine: 'UrbanTwin browser model v1', config, runs: batch } : null,
       },
       'urbantwin-experiment.json',
@@ -1179,7 +1188,8 @@ export default function App() {
                     </div>
                     <div className="prompt-chips">
                       {[
-                        'Which intersection is most congested?',
+                        'Which intersection is most congested right now?',
+                        'Which intersection had the most waiting over the run?',
                         'Explain the comparison',
                         'Which approach waits longest?',
                         'What should I test next?',
@@ -1213,9 +1223,9 @@ export default function App() {
                       </button>
                     </form>
                     <small>
-                      This assistant supports junction demand, comparison, stops, fairness and
-                      intervention questions. It does not access real traffic feeds or control real
-                      signals.
+                      This assistant supports current junction demand, cumulative junction waiting,
+                      comparison, stops, fairness and intervention questions. It does not access
+                      real traffic feeds or control real signals.
                     </small>
                   </section>
                 </>

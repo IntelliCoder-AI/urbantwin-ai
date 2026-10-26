@@ -7,6 +7,22 @@ test('completed run restarts and exports a fresh matched experiment', async ({ p
   await page.goto('/');
   await page.getByLabel('Playback speed', { exact: true }).selectOption('16');
   await expect(page.locator('.time-code')).toHaveText('10:00 / 10:00', { timeout: 100000 });
+  await page.getByRole('button', { name: 'AI insights', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: 'Which intersection had the most waiting over the run?',
+      exact: true,
+    })
+    .click();
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(page.locator('.assistant-answer')).toContainText('completed-run ranking');
+  await expect(page.locator('.assistant-answer')).toContainText('vehicle-seconds');
+  await page
+    .getByRole('button', { name: 'Which intersection is most congested right now?', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Ask', exact: true }).click();
+  await expect(page.locator('.assistant-answer')).toContainText('no current congestion leader');
+  await page.getByRole('button', { name: 'City overview', exact: true }).click();
   // The old interval has stopped at this point. Restart must install a new timer.
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: 'Restart simulation', exact: true }).click();
@@ -21,6 +37,9 @@ test('completed run restarts and exports a fresh matched experiment', async ({ p
   expect(result.time).toBeGreaterThan(0);
   expect(result.time).toBeLessThan(600);
   expect(result.fixed.time).toBe(result.adaptive.time);
+  expect(result.junctionWaiting.unit).toBe('vehicle-seconds');
+  expect(result.junctionWaiting.fixed).toHaveLength(4);
+  expect(result.junctionWaiting.adaptive).toHaveLength(4);
   expect(errors).toEqual([]);
 });
 

@@ -254,10 +254,12 @@ def run(scenario, seed, strategy, route_file, demand, record=False):
             "approachWait": means,
         }
 
+    junction_waiting = [0.0] * 4
+
     def pressures():
         qs = []
         old = []
-        for ll, aa in zip(lanes, axes):
+        for i, (ll, aa) in enumerate(zip(lanes, axes)):
             q = [0, 0]
             o = [0, 0]
             for lane, axis in zip(ll, aa):
@@ -265,6 +267,8 @@ def run(scenario, seed, strategy, route_file, demand, record=False):
                 for v in conn.lane.getLastStepVehicleIDs(lane):
                     if length - conn.vehicle.getLanePosition(v) <= 65:
                         q[axis] += 1
+                        if records.get(v, {}).get("stopped", False):
+                            junction_waiting[i] += DT
                         o[axis] = max(o[axis], records.get(v, {}).get("wait", 0))
             qs.append(q)
             old.append(o)
@@ -290,6 +294,7 @@ def run(scenario, seed, strategy, route_file, demand, record=False):
             "signals": [c.snapshot() for c in controls],
             "metrics": metrics(),
             "queues": q,
+            "junctionWaiting": list(junction_waiting),
         }
 
     if record:

@@ -40,6 +40,8 @@ export type Frame = {
   signals: Signal[];
   metrics: Metrics;
   queues: number[][];
+  /** Cumulative stopped vehicle-seconds within 65 m upstream of a stop line. */
+  junctionWaiting?: number[];
 };
 export const DEFAULT_CONFIG: Config = {
   seed: 42,
@@ -120,6 +122,7 @@ export class Simulation {
   completed: Vehicle[] = [];
   signals: Signal[];
   queueIntegral = 0;
+  junctionWaiting: number[];
   constructor(c: Config, strategy: Strategy) {
     if (
       !Number.isFinite(c.seed) ||
@@ -131,6 +134,7 @@ export class Simulation {
       throw new Error('Invalid simulation configuration');
     this.config = { ...c };
     this.strategy = strategy;
+    this.junctionWaiting = junctionPositions(c.junctions).map(() => 0);
     this.demand = generateDemand(c);
     this.signals = junctionPositions(c.junctions).map(() => ({
       axis: 0,
@@ -229,6 +233,11 @@ export class Simulation {
         const stopped = v.speed < 0.1;
         if (stopped) {
           v.wait += DT;
+          const junction = this.crossings(r).find((j) => {
+            const distance = j.p - 10 - target;
+            return distance >= 0 && distance < 65;
+          });
+          if (junction) this.junctionWaiting[junction.i] += DT;
           if (!v.stopped) v.stops++;
         }
         v.stopped = stopped;
@@ -284,6 +293,7 @@ export class Simulation {
       signals: this.signals.map((s) => ({ ...s })),
       metrics: this.metrics(),
       queues: this.pressures().q,
+      junctionWaiting: [...this.junctionWaiting],
     };
   }
 }

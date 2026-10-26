@@ -17,6 +17,15 @@ for (const scenario of ['normal', 'rush', 'incident']) {
           const f = run.frames[i];
           expect(f.time).toBe(i);
           expect(f.signals).toHaveLength(4);
+          expect(f.junctionWaiting).toHaveLength(4);
+          for (let j = 0; j < 4; j++) {
+            expect(f.junctionWaiting[j]).toBeGreaterThanOrEqual(
+              i ? run.frames[i - 1].junctionWaiting[j] : 0,
+            );
+          }
+          expect(f.junctionWaiting.reduce((a: number, b: number) => a + b, 0)).toBeLessThanOrEqual(
+            f.metrics.waiting * f.metrics.arrived + 1e-6,
+          );
           expect(f.metrics.unfinished + f.metrics.throughput).toBe(f.metrics.arrived);
           expect(f.metrics.worstWait).toBeGreaterThanOrEqual(f.metrics.waiting);
           expect(f.metrics.delay).toBeGreaterThanOrEqual(0);

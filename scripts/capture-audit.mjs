@@ -26,9 +26,19 @@ await page.locator('.settings').screenshot({ path: 'docs/screenshots/seed-valida
 await page.getByRole('button', { name: 'AI insights', exact: true }).click();
 await page
   .getByLabel('Ask traffic assistant')
-  .fill('Which intersection is most congested in rush hour and why?');
+  .fill('Which intersection is most congested right now in rush hour and why?');
 await page.getByRole('button', { name: 'Ask', exact: true }).click();
 await page.locator('.assistant').screenshot({ path: 'docs/screenshots/assistant-evidence.png' });
+await page
+  .getByRole('button', {
+    name: 'Which intersection had the most waiting over the run?',
+    exact: true,
+  })
+  .click();
+await page.getByRole('button', { name: 'Ask', exact: true }).click();
+await page
+  .locator('.assistant')
+  .screenshot({ path: 'docs/screenshots/cumulative-junction-evidence.png' });
 await page.getByRole('button', { name: 'Methodology', exact: true }).click();
 await page
   .getByRole('region', { name: 'SUMO-only evaluation' })
