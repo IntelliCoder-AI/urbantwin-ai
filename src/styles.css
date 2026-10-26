@@ -1525,9 +1525,6 @@ tbody tr:last-child td {
   .profile {
     display: none;
   }
-  footer > span:last-child {
-    display: none;
-  }
 }
 @media (max-width: 760px) {
   .content {
@@ -1861,4 +1858,27 @@ tbody tr:last-child td {
   margin-bottom: 14px;
   background: #13232c;
   color: #a9c4bd;
+}
+
+.field-error {
+  color: #ffb0a8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.sumo-evidence {
+  border-left: 3px solid #b2a0ed;
+  background: #171d2b;
+}
+.footer-links {
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.footer-links a {
+  color: #9dc9bc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.delta {
+  white-space: normal;
+  flex-wrap: wrap;
 }

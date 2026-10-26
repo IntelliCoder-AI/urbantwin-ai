@@ -95,3 +95,9 @@ scripts/evaluate.ts      browser evaluation CLI
 ## Limitations
 
 The district is inspired by Bengaluru but is not a GIS reconstruction. No calibrated counts, turns, pedestrians, two-wheelers, transit priority or emissions model are included. Incident behavior differs by engine and is documented. Five seeds are a small exploratory sample. Equal mean approach waits do not imply equitable real-world mobility. Green caps prevent phase monopolization, but cannot guarantee bounded vehicle waiting under excess demand. The assistant is an explainable rules engine, not an LLM. There is no persistent multi-user experiment storage. Official competition eligibility, format and deadlines require the Candidate Guide; the November 1 target was provided by the project owner.
+
+## Navigation and assistant
+
+Shareable view paths are `/`, `/control-center`, `/lab`, `/insights` and `/methodology`. Browser Back/Forward changes views without discarding the current experiment. A refreshed or shared link opens that view with the default experiment; URLs do not encode a seed or saved run. Unknown view paths show an in-app recovery page. Vercel rewrites view requests to the app while keeping asset/data paths separate.
+
+The local assistant supports junction demand, approach waiting, controller comparisons, stops and interventions. It identifies its source, scenario, control strategy and time; unsupported questions receive a scope response. Junction ranking uses approaching demand within 65 m (including moving vehicles), not a measured whole-run congestion ranking. Timings are read-only; valid seeds are applied explicitly and invalid drafts never restart a run.

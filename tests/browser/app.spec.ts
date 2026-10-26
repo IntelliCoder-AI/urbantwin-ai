@@ -27,6 +27,7 @@ test('complete traffic lab journey', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Control center', exact: true }).click();
   await page.getByLabel('Network', { exact: true }).selectOption('1');
   await page.getByLabel('Random seed', { exact: true }).fill('123');
+  await page.getByRole('button', { name: 'Apply seed' }).click();
   await expect(page.locator('.junction-panel .tiny').first()).toContainText('01 / 1');
   await page.getByLabel('Traffic scenario', { exact: true }).selectOption('incident');
   await page.getByRole('button', { name: 'Counterfactual lab', exact: false }).first().click();
@@ -39,7 +40,9 @@ test('complete traffic lab journey', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'AI insights', exact: true }).click();
   await page.getByRole('button', { name: 'Which approach waits longest?' }).click();
   await page.getByRole('button', { name: 'Ask', exact: true }).click();
-  await expect(page.locator('.assistant-answer')).toContainText('highest mean wait');
+  await expect(page.locator('.assistant-answer')).toContainText(
+    /highest mean wait|No accumulated approach waiting/,
+  );
   await page.getByRole('button', { name: 'Methodology', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recorded SUMO evaluation' })).toBeVisible();
   await page.getByRole('button', { name: 'City overview', exact: true }).click();

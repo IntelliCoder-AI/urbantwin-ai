@@ -407,7 +407,7 @@ class Boundary extends Component<{ children: ReactNode }, { error: boolean }> {
   }
   render() {
     return this.state.error ? (
-      <div className="canvas-fallback">
+      <div className="canvas-fallback" role="status" aria-live="polite">
         3D rendering is unavailable on this device. Metrics, experiments and simulation controls
         remain available.
       </div>
